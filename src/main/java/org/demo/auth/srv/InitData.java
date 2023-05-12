@@ -67,6 +67,13 @@ public class InitData implements ApplicationRunner {
 	private static final String INIT_USERS = "create table users(username varchar_ignorecase(50) not null primary key,password varchar_ignorecase(500) not null,enabled boolean not null)";
 	
 	private static final String INIT_AUTHORITIES = "create table authorities (username varchar_ignorecase(50) not null,authority varchar_ignorecase(50) not null,constraint fk_authorities_users foreign key(username) references users(username))";
+	
+	private static final String INIT_OAUTH2_KEY_PAIR = "CREATE TABLE OAUTH2_KEY_PAIR (\r\n"
+			+ "	id varchar(100) NOT NULL,\r\n"
+			+ "	PRIVATE_KEY_VALUE blob DEFAULT NULL,\r\n"
+			+ "	PUBLIC_KEY_VALUE blob DEFAULT NULL,\r\n"
+			+ "	PRIMARY KEY (id)\r\n"
+			+ ")";
 
 	@Override
 	public void run(ApplicationArguments args) throws Exception {
@@ -75,6 +82,7 @@ public class InitData implements ApplicationRunner {
 		this.jdbcTemplate.execute(INIT_OAUTH2_AUTHORIZATION);
 		this.jdbcTemplate.execute(INIT_USERS);
 		this.jdbcTemplate.execute(INIT_AUTHORITIES);
+		this.jdbcTemplate.execute(INIT_OAUTH2_KEY_PAIR);
 		
 		@SuppressWarnings("deprecation")
 		UserDetails userDetails = User.withDefaultPasswordEncoder().username("user").password("password").roles("USER")
@@ -85,6 +93,7 @@ public class InitData implements ApplicationRunner {
 		RegisteredClient registeredClient = RegisteredClient.withId(UUID.randomUUID().toString())
 		.clientId("messaging-client").clientSecret("{noop}secret")
 		.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+		.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
 		.authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
 		.authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
 		.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)

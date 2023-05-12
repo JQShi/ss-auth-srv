@@ -2,12 +2,12 @@ package org.demo.auth.srv.config;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.security.interfaces.RSAPrivateKey;
-import java.security.interfaces.RSAPublicKey;
-import java.util.UUID;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 
 import javax.sql.DataSource;
 
+import org.demo.auth.srv.jwk.JdbcJWKSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
@@ -35,9 +35,6 @@ import org.springframework.security.provisioning.UserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 
-import com.nimbusds.jose.jwk.JWKSet;
-import com.nimbusds.jose.jwk.RSAKey;
-import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 
@@ -60,18 +57,17 @@ public class SecurityConfig {
 
 		return http.build();
 	}
-	
+
 	@Profile("dev")
 	@Bean
-    @Order(Ordered.HIGHEST_PRECEDENCE)
-    SecurityFilterChain h2ConsoleSecurityFilterChain(HttpSecurity http) throws Exception {
-        http.requestMatcher(PathRequest.toH2Console());
+	@Order(Ordered.HIGHEST_PRECEDENCE)
+	SecurityFilterChain h2ConsoleSecurityFilterChain(HttpSecurity http) throws Exception {
+		http.requestMatcher(PathRequest.toH2Console());
 //        http.authorizeRequests(yourCustomAuthorization());
-        http.csrf((csrf) -> csrf.disable());
-        http.headers((headers) -> headers.frameOptions().sameOrigin());
-        return http.build();
-    }
-	
+		http.csrf((csrf) -> csrf.disable());
+		http.headers((headers) -> headers.frameOptions().sameOrigin());
+		return http.build();
+	}
 
 	@Bean
 	@Order(3)
@@ -92,7 +88,7 @@ public class SecurityConfig {
 ////				.build();
 ////		return new InMemoryUserDetailsManager(userDetails);
 //	}
-	
+
 	@Bean
 	public UserDetailsManager userDetailsManager(@Autowired DataSource dataSource) {
 		JdbcUserDetailsManager userDetailsManager = new JdbcUserDetailsManager(dataSource);
@@ -104,17 +100,18 @@ public class SecurityConfig {
 		JdbcRegisteredClientRepository registeredClientRepository = new JdbcRegisteredClientRepository(jdbcTemplate);
 		return registeredClientRepository;
 	}
-	
+
 	@Bean
 	public JdbcOAuth2AuthorizationService jdbcOAuth2AuthorizationService(@Autowired JdbcTemplate jdbcTemplate) {
 		return new JdbcOAuth2AuthorizationService(jdbcTemplate, registeredClientRepository(jdbcTemplate));
 	}
-	
+
 	@Bean
-	public JdbcOAuth2AuthorizationConsentService jdbcOAuth2AuthorizationConsentService(@Autowired JdbcTemplate jdbcTemplate) {
+	public JdbcOAuth2AuthorizationConsentService jdbcOAuth2AuthorizationConsentService(
+			@Autowired JdbcTemplate jdbcTemplate) {
 		return new JdbcOAuth2AuthorizationConsentService(jdbcTemplate, registeredClientRepository(jdbcTemplate));
 	}
-	
+
 	@Bean
 	public OAuth2TokenCustomizer<JwtEncodingContext> jwtCustomizer() {
 		// userinfo信息扩展点
@@ -124,15 +121,23 @@ public class SecurityConfig {
 		};
 	}
 
+//	@Bean
+//	public JWKSource<SecurityContext> jwkSource() {
+//		KeyPair keyPair = generateRsaKey();
+//		RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
+//		RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
+////		RSAKey rsaKey = new RSAKey.Builder(publicKey).privateKey(privateKey).keyID(UUID.randomUUID().toString())
+////				.build();
+//		RSAKey rsaKey = new RSAKey.Builder(publicKey).privateKey(privateKey)
+//				.keyID("d004c961-3ee7-4f31-beb6-d8736515fd76").build();
+//		JWKSet jwkSet = new JWKSet(rsaKey);
+//		return new ImmutableJWKSet<>(jwkSet);
+//	}
+
 	@Bean
-	public JWKSource<SecurityContext> jwkSource() {
-		KeyPair keyPair = generateRsaKey();
-		RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
-		RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
-		RSAKey rsaKey = new RSAKey.Builder(publicKey).privateKey(privateKey).keyID(UUID.randomUUID().toString())
-				.build();
-		JWKSet jwkSet = new JWKSet(rsaKey);
-		return new ImmutableJWKSet<>(jwkSet);
+	public JWKSource<SecurityContext> jwkSource(@Autowired JdbcTemplate jdbcTemplate) {
+		String keyId = "d004c961-3ee7-4f31-beb6-d8736515fd76";
+		return new JdbcJWKSource<>(keyId, jdbcTemplate);
 	}
 
 	private static KeyPair generateRsaKey() {
@@ -141,12 +146,25 @@ public class SecurityConfig {
 			KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
 			keyPairGenerator.initialize(2048);
 			keyPair = keyPairGenerator.generateKeyPair();
-		}
-		catch (Exception ex) {
+		} catch (Exception ex) {
 			throw new IllegalStateException(ex);
 		}
 		return keyPair;
 	}
+
+//	public static void main(String[] args) {
+//		KeyPair keyPair;
+//		try {
+//			KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+//			keyPairGenerator.initialize(2048);
+//			keyPair = keyPairGenerator.generateKeyPair();
+//			PublicKey public1 = keyPair.getPublic();
+//			PrivateKey private1 = keyPair.getPrivate();
+//			System.out.println("Done");
+//		} catch (Exception ex) {
+//			throw new IllegalStateException(ex);
+//		}
+//	}
 
 	@Bean
 	public JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource) {
